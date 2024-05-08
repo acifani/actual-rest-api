@@ -38,15 +38,6 @@ export async function getAllTransactions(offbudget?: boolean) {
   return transactions;
 }
 
-export async function getLatestBudget() {
-  const budgetMonths = await api.getBudgetMonths();
-  if (!budgetMonths?.length) {
-    return null;
-  }
-
-  return api.getBudgetMonth(budgetMonths.at(-1));
-}
-
 export async function getBudgetAtMonth(month: string) {
   return api.getBudgetMonth(month);
 }

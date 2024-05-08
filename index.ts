@@ -6,56 +6,32 @@ const app = express();
 
 app.use(authMiddleware);
 
+app.get('/budget/:month', async (req, res) => {
+  const budget = await actual.getBudgetAtMonth(req.params.month);
+  res.status(200).json(budget);
+});
+
 app.get('/accounts', async (_, res) => {
-  try {
-    const accounts = await actual.getAccounts();
-    return res.status(200).json(accounts);
-  } catch (e) {
-    console.error(e);
-    return res.status(500).send();
-  }
+  const accounts = await actual.getAccounts();
+  res.status(200).json(accounts);
 });
 
 app.get('/accounts/:accountid/transactions', async (req, res) => {
-  try {
-    const transactions = await actual.getTransactions(req.params.accountid);
-    return res.status(200).json(transactions);
-  } catch (e) {
-    console.error(e);
-    return res.status(500).send();
-  }
+  const transactions = await actual.getTransactions(req.params.accountid);
+  res.status(200).json(transactions);
 });
 
 app.get('/transactions', async (req, res) => {
-  try {
-    const offbudget = req.query['offbudget'] === 'true';
-    const transactions = await actual.getAllTransactions(offbudget);
-    return res.status(200).json(transactions);
-  } catch (e) {
-    console.error(e);
-    return res.status(500).send();
-  }
+  const offbudget = req.query['offbudget'] === 'true';
+  const transactions = await actual.getAllTransactions(offbudget);
+  res.status(200).json(transactions);
 });
 
-app.get('/budget', async (_, res) => {
-  try {
-    const budget = actual.getLatestBudget();
-    return res.status(200).json(budget);
-  } catch (e) {
-    console.error(e);
-    return res.status(500).send();
-  }
-});
-
-app.get('/budget/:month', async (req, res) => {
-  try {
-    const budget = await actual.getBudgetAtMonth(req.params.month);
-    return res.status(200).json(budget);
-  } catch (e) {
-    console.error(e);
-    return res.status(500).send();
-  }
-});
+const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
+  console.error(err);
+  res.sendStatus(500);
+};
+app.use(errorHandler);
 
 // Server start
 const port = process.env.PORT || 3000;
