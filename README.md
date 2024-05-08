@@ -28,3 +28,11 @@ node ./dist/index.js
 
 There's also a Docker image available in the 
 [Packages](https://github.com/acifani/actual-rest-api/pkgs/container/actual-rest-api) section of this repo.
+
+## Google Sheets
+
+You can import the data directly into Google Sheets (or Excel)
+
+```gsheet
+=IMPORTDATA("https://your-actual.server.dev/transactions?format=csv&token=...")
+```
