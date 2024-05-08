@@ -1,31 +1,12 @@
 import express from 'express';
 import * as actual from './actual';
 import { authMiddleware } from './auth';
+import { router } from './routes';
 
 const app = express();
 
 app.use(authMiddleware);
-
-app.get('/budget/:month', async (req, res) => {
-  const budget = await actual.getBudgetAtMonth(req.params.month);
-  res.status(200).json(budget);
-});
-
-app.get('/accounts', async (_, res) => {
-  const accounts = await actual.getAccounts();
-  res.status(200).json(accounts);
-});
-
-app.get('/accounts/:accountid/transactions', async (req, res) => {
-  const transactions = await actual.getTransactions(req.params.accountid);
-  res.status(200).json(transactions);
-});
-
-app.get('/transactions', async (req, res) => {
-  const offbudget = req.query['offbudget'] === 'true';
-  const transactions = await actual.getAllTransactions(offbudget);
-  res.status(200).json(transactions);
-});
+app.use('/', router);
 
 const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
   console.error(err);
