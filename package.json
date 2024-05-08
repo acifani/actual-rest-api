@@ -1,0 +1,22 @@
+{
+  "name": "actual-to-csv",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "prestart": "pnpm build",
+    "start": "node --env-file=.env ./dist/index.js"
+  },
+  "keywords": [],
+  "author": "Alessandro Cifani <alessandro.cifani@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@actual-app/api": "^6.7.1",
+    "express": "5.0.0-beta.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "typescript": "^5.4.5"
+  }
+}
