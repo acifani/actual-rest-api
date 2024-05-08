@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "prestart": "pnpm build",
-    "start": "node --env-file=.env ./dist/index.js"
+    "start": "node --env-file=.env ./dist/index.js",
+    "start:docker": "node ./dist/index.js"
   },
   "keywords": [],
   "author": "Alessandro Cifani <alessandro.cifani@gmail.com>",
