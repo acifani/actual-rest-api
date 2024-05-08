@@ -1,5 +1,5 @@
 {
-  "name": "actual-to-csv",
+  "name": "actual-rest-api",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
