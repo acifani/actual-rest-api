@@ -20,7 +20,7 @@ You can create an `.env` file or export them to your shell manually.
 node --env-file=.env ./dist/index.js
 
 # or export them on your shell however you want
-export FINECO_USER_ID=12345678
+export ACTUAL_SERVER_URL=https://my-actual.server.dev/
 export ...
 
 node ./dist/index.js
