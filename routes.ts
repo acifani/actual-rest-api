@@ -34,6 +34,11 @@ router.get('/accounts', async (_, res) => {
   res.status(200).json(accounts);
 });
 
+router.get('/accounts/:accountid', async (req, res) => {
+  const account = await actual.getAccount(req.params.accountid);
+  res.status(200).json(account);
+});
+
 router.get(
   '/accounts/:accountid/transactions',
   async (req, res, next) => {

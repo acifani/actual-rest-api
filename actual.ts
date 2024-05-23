@@ -18,6 +18,29 @@ export async function getAccounts() {
   return api.getAccounts();
 }
 
+export async function getAccount(id: string) {
+  const accounts = await api.getAccounts();
+  const account = accounts.find((a: any) => a.id === id);
+  if (!account) {
+    return null;
+  }
+
+  const balance = await getAccountBalance(id);
+  return { ...account, balance };
+}
+
+export async function getAccountBalance(
+  accountID: string,
+): Promise<number | null> {
+  const query = api
+    .q('transactions')
+    .filter({ account: accountID })
+    .select({ amount: { $sum: '$amount' } });
+  const { data } = await api.runQuery(query);
+
+  return data?.[0]?.amount ?? null;
+}
+
 export async function getTransactions(accountID: string) {
   return api.getTransactions(accountID);
 }
