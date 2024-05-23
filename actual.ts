@@ -15,7 +15,13 @@ export async function shutdown() {
 }
 
 export async function getAccounts() {
-  return api.getAccounts();
+  const accounts = await api.getAccounts();
+  return Promise.all(
+    accounts.map(async (a: any) => ({
+      ...a,
+      balance: await getAccountBalance(a.id),
+    })),
+  );
 }
 
 export async function getAccount(id: string) {
