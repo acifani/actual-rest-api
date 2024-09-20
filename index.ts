@@ -25,7 +25,7 @@ const server = app.listen(port, () => {
 // Refresh Actual data at a given frequence
 const intervalID = setInterval(() => {
   actual.init().then(() => console.log('Actual DB refreshed'));
-}, Number(process.env.ACTUAL_REFRESH_INTERVAL_SECONDS) * 1000 ?? 60_000);
+}, (Number(process.env.ACTUAL_REFRESH_INTERVAL_SECONDS) || 60) * 1000);
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
