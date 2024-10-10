@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 
 const authToken = process.env.AUTH_TOKEN;
 const authEnabled = !!authToken && authToken.length > 0;
@@ -11,9 +11,11 @@ export function authMiddleware(
   if (authEnabled) {
     const incomingToken = req.headers['authorization'] || req.query['token'];
     if (incomingToken !== authToken) {
-      return res.sendStatus(403);
+      res.sendStatus(403);
+      return;
     }
   }
 
-  return next();
+  next();
+  return;
 }
