@@ -13,7 +13,7 @@
   "author": "Alessandro Cifani <alessandro.cifani@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@actual-app/api": "^25.3.0",
+    "@actual-app/api": "^25.3.1",
     "express": "^5.0.1"
   },
   "devDependencies": {
