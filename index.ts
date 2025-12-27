@@ -1,7 +1,7 @@
 import express from 'express';
-import * as actual from './actual';
-import { authMiddleware } from './auth';
-import { router } from './routes';
+import * as actual from './actual.ts';
+import { authMiddleware } from './auth.ts';
+import { router } from './routes.ts';
 
 const app = express();
 

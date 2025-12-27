@@ -1,4 +1,4 @@
-import * as actual from './actual';
+import * as actual from './actual.ts';
 import { q, runQuery } from '@actual-app/api';
 import express from 'express';
 const router = express.Router();
