@@ -76,7 +76,10 @@ function jsonToCSV(data: any) {
   }
 
   // array
-  csv += unpackHeaders(data?.[0]);
+  if (data.length === 0) {
+    return csv;
+  }
+  csv += unpackHeaders(data[0]);
   for (const row of data) {
     csv += unpackValues(row);
   }
