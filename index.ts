@@ -31,11 +31,12 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 // Graceful shutdown
-function shutdown() {
+async function shutdown() {
   clearInterval(intervalID);
 
   console.log('Shutting down Actual DB...');
-  actual.shutdown().then(() => console.log('Actual DB shut down'));
+  await actual.shutdown();
+  console.log('Actual DB shut down');
 
   console.log('Closing HTTP server...');
   server.close(() => console.log('HTTP server closed'));
