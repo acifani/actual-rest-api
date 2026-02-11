@@ -1,37 +1,6 @@
 import * as actual from './actual.ts';
-import { q, runQuery } from '@actual-app/api';
 import express from 'express';
 const router = express.Router();
-
-const transactionsQuery = q('transactions').select([
-  'id',
-  'is_parent',
-  'is_child',
-  'parent_id',
-  'account',
-  'category',
-  'amount',
-  'payee',
-  'notes',
-  'date',
-  'imported_id',
-  'error',
-  'imported_payee',
-  'starting_balance_flag',
-  'transfer_id',
-  'sort_order',
-  'cleared',
-  'reconciled',
-  'tombstone',
-  'schedule',
-  'account.closed',
-  'account.name',
-  'account.offbudget',
-  'category.name',
-  'category.is_income',
-  'payee.name',
-  'schedule.name',
-]);
 
 const formatHandler: express.RequestHandler = (req, res) => {
   const format = req.query['format'] === 'csv' ? 'csv' : 'json';
@@ -71,10 +40,8 @@ router.get(
 router.get(
   '/accounts/:accountid/transactions',
   async (req, res, next) => {
-    const { data } = await runQuery(
-      transactionsQuery.filter({ account: req.params.accountid }),
-    );
-    res.locals.data = data;
+    const transactions = await actual.getTransactions(req.params.accountid);
+    res.locals.data = transactions;
     next();
   },
   formatHandler,
@@ -83,8 +50,8 @@ router.get(
 router.get(
   '/transactions',
   async (_, res, next) => {
-    const { data } = await runQuery(transactionsQuery);
-    res.locals.data = data;
+    const transactions = await actual.getAllTransactions();
+    res.locals.data = transactions;
     next();
   },
   formatHandler,

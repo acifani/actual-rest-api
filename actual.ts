@@ -1,6 +1,48 @@
 import * as api from '@actual-app/api';
 
+const transactionsQuery = api
+  .q('transactions')
+  .select([
+    'id',
+    'is_parent',
+    'is_child',
+    'parent_id',
+    'account',
+    'category',
+    'amount',
+    'payee',
+    'notes',
+    'date',
+    'imported_id',
+    'error',
+    'imported_payee',
+    'starting_balance_flag',
+    'transfer_id',
+    'sort_order',
+    'cleared',
+    'reconciled',
+    'tombstone',
+    'schedule',
+    'account.closed',
+    'account.name',
+    'account.offbudget',
+    'category.name',
+    'category.is_income',
+    'payee.name',
+    'schedule.name',
+  ]);
+
 export async function init() {
+  if (!process.env.ACTUAL_SERVER_URL || !process.env.ACTUAL_PASSWORD) {
+    throw new Error(
+      'ACTUAL_SERVER_URL and ACTUAL_PASSWORD environment variables must be set',
+    );
+  }
+
+  if (!process.env.ACTUAL_BUDGET_SYNC_ID) {
+    throw new Error('ACTUAL_BUDGET_SYNC_ID environment variable must be set');
+  }
+
   await api.init({
     dataDir: './data',
     serverURL: process.env.ACTUAL_SERVER_URL,
@@ -38,33 +80,19 @@ export async function getAccount(id: string) {
 export async function getAccountBalance(
   accountID: string,
 ): Promise<number | null> {
-  const query = api
-    .q('transactions')
-    .filter({ account: accountID })
-    .select({ amount: { $sum: '$amount' } });
-  const { data } = await api.runQuery(query);
-
-  return data?.[0]?.amount ?? null;
+  return api.getAccountBalance(accountID);
 }
 
 export async function getTransactions(accountID: string) {
-  return api.getTransactions(accountID);
+  const { data } = (await api.aqlQuery(
+    transactionsQuery.filter({ account: accountID }),
+  )) as { data: unknown };
+  return data;
 }
 
-export async function getAllTransactions(offbudget?: boolean) {
-  const accounts = await api.getAccounts();
-
-  const accountsToFetch = accounts?.filter(
-    (a: any) => !a.offbudget || offbudget,
-  );
-
-  const transactions = [];
-  for (const account of accountsToFetch) {
-    const tx = await api.getTransactions(account.id);
-    transactions.push(...tx);
-  }
-
-  return transactions;
+export async function getAllTransactions() {
+  const { data } = (await api.aqlQuery(transactionsQuery)) as { data: unknown };
+  return data;
 }
 
 export async function getBudgetAtMonth(month: string) {
