@@ -30,7 +30,7 @@ router.get(
 router.get(
   '/accounts/:accountid',
   async (req, res, next) => {
-    const account = await actual.getAccount(req.params.accountid);
+    const account = await actual.getAccount(req.params.accountid as string);
     res.locals.data = account;
     next();
   },
@@ -40,7 +40,7 @@ router.get(
 router.get(
   '/accounts/:accountid/transactions',
   async (req, res, next) => {
-    const transactions = await actual.getTransactions(req.params.accountid);
+    const transactions = await actual.getTransactions(req.params.accountid as string);
     res.locals.data = transactions;
     next();
   },
