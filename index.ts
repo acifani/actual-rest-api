@@ -16,10 +16,13 @@ app.use(errorHandler);
 
 // Server start
 const port = process.env.PORT || 3000;
+
+console.log('Initializing Actual DB...');
+await actual.init();
+console.log('Actual DB initialized');
+
 const server = app.listen(port, () => {
   console.log(`Listening on port ${port}...`);
-  console.log('Initializing Actual DB...');
-  actual.init().then(() => console.log('Actual DB initialized'));
 });
 
 // Refresh Actual data at a given frequence
