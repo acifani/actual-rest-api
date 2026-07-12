@@ -12,12 +12,12 @@
   "author": "Alessandro Cifani <alessandro.cifani@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@actual-app/api": "^26.6.0",
+    "@actual-app/api": "^26.7.0",
     "express": "^5.2.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "packageManager": "pnpm@11.0.6+sha512.97f906e1da2bedac3df83cadae04b4753a130092dd49d55cd36825ad3e623e9df3f97754f8f259e699172a360fac569acf2f908e7732bdae3eddb2dcf7e121fd"
 }
