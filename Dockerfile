@@ -1,4 +1,6 @@
-FROM ghcr.io/pnpm/pnpm:12 AS base
+FROM node:26-slim
+
+RUN npx get-pnpm
 
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
