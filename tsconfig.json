@@ -3,18 +3,14 @@
     "compilerOptions": {
         "outDir": "dist",
         "lib": [
-            "es2024",
-            "ESNext.Array",
+            "es2025",
             "ESNext.Collection",
-            "ESNext.Iterator",
-            "ESNext.Promise"
+            "ESNext.Temporal"
         ],
         "module": "nodenext",
-        "target": "esnext",
-        "strict": true,
+        "target": "es2025",
         "esModuleInterop": true,
         "skipLibCheck": true,
-        "moduleResolution": "node16",
         "noEmit": true,
         "rewriteRelativeImportExtensions": true,
         "erasableSyntaxOnly": true,

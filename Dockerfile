@@ -1,13 +1,8 @@
-FROM node:24-slim
+FROM ghcr.io/pnpm/pnpm:12 AS base
 
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-
-RUN npm install -g corepack@latest && corepack enable
-
-COPY . /app
 WORKDIR /app
-
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY . .
 
 CMD [ "pnpm", "start:docker" ]
