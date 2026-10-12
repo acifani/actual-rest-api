@@ -68,6 +68,20 @@ All endpoints return JSON by default. Add `?format=csv` to get CSV output instea
 | `GET /transactions`              | Get all transactions                       |
 | `GET /budget/:month`             | Get budget for a month (format: `YYYY-MM`) |
 
+### Transaction filters
+
+Both transaction endpoints accept optional query parameters for JSON and CSV:
+
+| Parameter   | Description                                                      |
+| ----------- | ---------------------------------------------------------------- |
+| `startDate` | Include transactions on or after this date (`YYYY-MM-DD`).       |
+| `endDate`   | Include transactions before this date (`YYYY-MM-DD`, exclusive). |
+| `fields`    | Comma-separated column names, returned in the specified order.   |
+
+All history and the fixed columns are returned unless filters are specified. `fields` can
+select any field path supported by your Actual version (e.g. `payee.name`), without
+wildcards or expressions. Amounts remain in minor currency units (e.g. cents).
+
 ## Google Sheets
 
 You can import data directly into Google Sheets (or Excel) using the CSV format:
@@ -75,3 +89,11 @@ You can import data directly into Google Sheets (or Excel) using the CSV format:
 ```
 =IMPORTDATA("https://your-actual.server.dev/transactions?format=csv&token=your-secret-token")
 ```
+
+For smaller imports, select a date range and columns:
+
+```text
+=IMPORTDATA("https://your-actual.server.dev/transactions?format=csv&startDate=2026-01-01&endDate=2027-01-01&fields=date,account.name,payee.name,category.name,amount&token=your-secret-token")
+```
+
+If needed, split imports into monthly ranges on separate tabs.

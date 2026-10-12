@@ -1,36 +1,5 @@
 import * as api from '@actual-app/api';
-
-const transactionsQuery = api
-  .q('transactions')
-  .select([
-    'id',
-    'is_parent',
-    'is_child',
-    'parent_id',
-    'account',
-    'category',
-    'amount',
-    'payee',
-    'notes',
-    'date',
-    'imported_id',
-    'error',
-    'imported_payee',
-    'starting_balance_flag',
-    'transfer_id',
-    'sort_order',
-    'cleared',
-    'reconciled',
-    'tombstone',
-    'schedule',
-    'account.closed',
-    'account.name',
-    'account.offbudget',
-    'category.name',
-    'category.is_income',
-    'payee.name',
-    'schedule.name',
-  ]);
+import { buildTransactionsQuery, type TransactionOptions } from './transaction-query.ts';
 
 export async function init() {
   if (!process.env.ACTUAL_SERVER_URL || !process.env.ACTUAL_PASSWORD) {
@@ -83,16 +52,23 @@ export async function getAccountBalance(
   return api.getAccountBalance(accountID);
 }
 
-export async function getTransactions(accountID: string) {
-  const { data } = (await api.aqlQuery(
-    transactionsQuery.filter({ account: accountID }),
-  )) as { data: unknown };
-  return data;
+export async function getTransactions(accountID: string, options: TransactionOptions = {}) {
+  return queryTransactions(options, accountID);
 }
 
-export async function getAllTransactions() {
-  const { data } = (await api.aqlQuery(transactionsQuery)) as { data: unknown };
-  return data;
+export async function getAllTransactions(options: TransactionOptions = {}) {
+  return queryTransactions(options);
+}
+
+async function queryTransactions(options: TransactionOptions, accountID?: string) {
+  const { data } = (await api.aqlQuery(buildTransactionsQuery(options, accountID))) as {
+    data: Record<string, unknown>[];
+  };
+  // ActualQL automatically includes id, even when it is not selected.
+  const fields = options.fields;
+  return fields
+    ? data.map(row => Object.fromEntries(fields.map(field => [field, row[field]])))
+    : data;
 }
 
 export async function getBudgetAtMonth(month: string) {

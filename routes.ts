@@ -1,11 +1,21 @@
 import * as actual from './actual.ts';
 import express from 'express';
+import { parseTransactionOptions } from './transaction-query.ts';
 const router = express.Router();
+
+const transactionOptionsHandler: express.RequestHandler = (req, res, next) => {
+  try {
+    res.locals.transactionOptions = parseTransactionOptions(req.query);
+    next();
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
+};
 
 const formatHandler: express.RequestHandler = (req, res) => {
   const format = req.query['format'] === 'csv' ? 'csv' : 'json';
   if (format === 'csv') {
-    const data = jsonToCSV(res.locals.data);
+    const data = jsonToCSV(res.locals.data, res.locals.transactionOptions?.fields);
     res.status(200).header('Content-Type', 'text/csv').send(data);
   } else if (format === 'json') {
     res.status(200).json(res.locals.data);
@@ -39,8 +49,9 @@ router.get(
 
 router.get(
   '/accounts/:accountid/transactions',
+  transactionOptionsHandler,
   async (req, res, next) => {
-    const transactions = await actual.getTransactions(req.params.accountid as string);
+    const transactions = await actual.getTransactions(req.params.accountid as string, res.locals.transactionOptions);
     res.locals.data = transactions;
     next();
   },
@@ -49,8 +60,9 @@ router.get(
 
 router.get(
   '/transactions',
+  transactionOptionsHandler,
   async (_, res, next) => {
-    const transactions = await actual.getAllTransactions();
+    const transactions = await actual.getAllTransactions(res.locals.transactionOptions);
     res.locals.data = transactions;
     next();
   },
@@ -59,12 +71,12 @@ router.get(
 
 export { router };
 
-function jsonToCSV(data: any) {
+function jsonToCSV(data: any, fields?: string[]) {
   let csv = '';
 
-  const unpackHeaders = (x: object) => Object.keys(x).join(',') + '\n';
+  const unpackHeaders = (x: object) => (fields ?? Object.keys(x)).join(',') + '\n';
   const unpackValues = (x: object) =>
-    Object.values(x)
+    (fields ? fields.map(field => (x as Record<string, unknown>)[field]) : Object.values(x))
       .map((v) => JSON.stringify(v))
       .join(',') + '\n';
 

@@ -5,6 +5,7 @@
   "type": "module",
   "main": "index.ts",
   "scripts": {
+    "test": "node --experimental-test-module-mocks --test",
     "start": "node --env-file=.env index.ts",
     "start:docker": "node index.ts"
   },
