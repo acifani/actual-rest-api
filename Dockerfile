@@ -1,10 +1,9 @@
-FROM node:26-slim
+FROM ghcr.io/pnpm/pnpm:12
 
-RUN npx get-pnpm
+RUN pnpm runtime set node 26 -g
 
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
 COPY . .
+RUN pnpm install --frozen-lockfile
 
 CMD [ "pnpm", "start:docker" ]
