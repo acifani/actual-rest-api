@@ -1,73 +1,50 @@
 import * as actual from './actual.ts';
 import express from 'express';
-import { parseTransactionOptions } from './transaction-query.ts';
+import { parseTransactionOptions, type TransactionOptions } from './transaction-query.ts';
 const router = express.Router();
 
-const transactionOptionsHandler: express.RequestHandler = (req, res, next) => {
-  try {
-    res.locals.transactionOptions = parseTransactionOptions(req.query);
-    next();
-  } catch (error) {
-    res.status(400).json({ error: (error as Error).message });
+function send(req: express.Request, res: express.Response, data: any, fields?: string[]) {
+  if (req.query['format'] === 'csv') {
+    res.status(200).header('Content-Type', 'text/csv').send(jsonToCSV(data, fields));
+  } else {
+    res.status(200).json(data);
   }
-};
-
-const formatHandler: express.RequestHandler = (req, res) => {
-  const format = req.query['format'] === 'csv' ? 'csv' : 'json';
-  if (format === 'csv') {
-    const data = jsonToCSV(res.locals.data, res.locals.transactionOptions?.fields);
-    res.status(200).header('Content-Type', 'text/csv').send(data);
-  } else if (format === 'json') {
-    res.status(200).json(res.locals.data);
-  }
-};
+}
 
 router.get('/budget/:month', async (req, res) => {
   const budget = await actual.getBudgetAtMonth(req.params.month);
   res.status(200).json(budget);
 });
 
-router.get(
-  '/accounts',
-  async (_, res, next) => {
-    const accounts = await actual.getAccounts();
-    res.locals.data = accounts;
-    next();
-  },
-  formatHandler,
-);
+router.get('/accounts', async (req, res) => {
+  send(req, res, await actual.getAccounts());
+});
 
-router.get(
-  '/accounts/:accountid',
-  async (req, res, next) => {
-    const account = await actual.getAccount(req.params.accountid as string);
-    res.locals.data = account;
-    next();
-  },
-  formatHandler,
-);
+router.get('/accounts/:accountid', async (req, res) => {
+  send(req, res, await actual.getAccount(req.params.accountid));
+});
 
-router.get(
-  '/accounts/:accountid/transactions',
-  transactionOptionsHandler,
-  async (req, res, next) => {
-    const transactions = await actual.getTransactions(req.params.accountid as string, res.locals.transactionOptions);
-    res.locals.data = transactions;
-    next();
-  },
-  formatHandler,
-);
+router.get('/accounts/:accountid/transactions', async (req, res) => {
+  let options: TransactionOptions;
+  try {
+    options = parseTransactionOptions(req.query);
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+    return;
+  }
+  send(req, res, await actual.getTransactions(req.params.accountid, options), options.fields);
+});
 
-router.get(
-  '/transactions',
-  transactionOptionsHandler,
-  async (_, res, next) => {
-    const transactions = await actual.getAllTransactions(res.locals.transactionOptions);
-    res.locals.data = transactions;
-    next();
-  },
-  formatHandler,
-);
+router.get('/transactions', async (req, res) => {
+  let options: TransactionOptions;
+  try {
+    options = parseTransactionOptions(req.query);
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+    return;
+  }
+  send(req, res, await actual.getAllTransactions(options), options.fields);
+});
 
 export { router };
 
