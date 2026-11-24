@@ -12,7 +12,7 @@ function formats(...allowed: string[]): express.RequestHandler {
 }
 const jsonOrCSV = formats('json', 'csv');
 
-function send(req: express.Request, res: express.Response, data: any, fields?: string[]) {
+function send(req: express.Request, res: express.Response, data: object | object[], fields?: string[]) {
   if (req.query['format'] === 'csv') {
     res.status(200).header('Content-Type', 'text/csv').send(toCSV(data, fields));
   } else {
@@ -30,7 +30,12 @@ router.get('/accounts', jsonOrCSV, async (req, res) => {
 });
 
 router.get('/accounts/:accountid', jsonOrCSV, async (req, res) => {
-  send(req, res, await actual.getAccount(req.params.accountid as string));
+  const account = await actual.getAccount(req.params.accountid as string);
+  if (!account) {
+    res.status(404).json({ error: 'Account not found' });
+    return;
+  }
+  send(req, res, account);
 });
 
 router.get('/accounts/:accountid/transactions', jsonOrCSV, async (req, res) => {

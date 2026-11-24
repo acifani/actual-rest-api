@@ -174,6 +174,24 @@ test('CSV on /budget/:month returns 400 before querying Actual', async () => {
   assert.deepEqual(await (await fetch(`${baseURL}/budget/2026-01`)).json(), { month: '2026-01' });
 });
 
+test('an unknown account returns 404 in JSON and CSV', async () => {
+  for (const query of ['', '?format=json', '?format=csv']) {
+    const response = await fetch(`${baseURL}/accounts/unknown${query}`);
+    assert.equal(response.status, 404, query);
+    assert.equal(typeof (await response.json() as { error: string }).error, 'string');
+  }
+  const known = await fetch(`${baseURL}/accounts/account-1?format=csv`);
+  assert.equal(known.status, 200);
+  assert.equal(await known.text(), 'id,name,balance\naccount-1,Checking,1000\n');
+});
+
+test('transactions of an unknown account are an empty list, not 404', async () => {
+  rows = [];
+  const response = await fetch(`${baseURL}/accounts/unknown/transactions`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), []);
+});
+
 test('empty results work in JSON and CSV', async () => {
   rows = [];
   const json = await fetch(`${baseURL}/transactions?fields=date,amount`);
