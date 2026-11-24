@@ -13,7 +13,7 @@ let rows: Record<string, unknown>[] = [{
   raw_synced_data: '{}', 'payee.favorite': true,
 }];
 mock.module('@actual-app/api', {
-  namedExports: {
+  exports: {
     q,
     aqlQuery: async (query: ReturnType<typeof q>) => {
       lastQuery = query;
