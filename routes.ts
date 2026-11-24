@@ -5,7 +5,7 @@ const router = express.Router();
 
 function send(req: express.Request, res: express.Response, data: any, fields?: string[]) {
   if (req.query['format'] === 'csv') {
-    res.status(200).header('Content-Type', 'text/csv').send(jsonToCSV(data, fields));
+    res.status(200).header('Content-Type', 'text/csv').send(toCSV(data, fields));
   } else {
     res.status(200).json(data);
   }
@@ -48,30 +48,16 @@ router.get('/transactions', async (req, res) => {
 
 export { router };
 
-function jsonToCSV(data: any, fields?: string[]) {
-  let csv = '';
+function toCSV(data: object | object[], fields?: string[]) {
+  const rows = (Array.isArray(data) ? data : [data]) as Record<string, unknown>[];
+  if (rows.length === 0) return '';
+  const columns = fields ?? Object.keys(rows[0]);
+  return [columns, ...rows.map(row => columns.map(column => row[column]))]
+    .map(cells => cells.map(csvCell).join(',')).join('\n') + '\n';
+}
 
-  const unpackHeaders = (x: object) => (fields ?? Object.keys(x)).join(',') + '\n';
-  const unpackValues = (x: object) =>
-    (fields ? fields.map(field => (x as Record<string, unknown>)[field]) : Object.values(x))
-      .map((v) => JSON.stringify(v))
-      .join(',') + '\n';
-
-  // object
-  if (!Array.isArray(data)) {
-    csv += unpackHeaders(data);
-    csv += unpackValues(data);
-    return csv;
-  }
-
-  // array
-  if (data.length === 0) {
-    return csv;
-  }
-  csv += unpackHeaders(data[0]);
-  for (const row of data) {
-    csv += unpackValues(row);
-  }
-
-  return csv;
+function csvCell(value: unknown) {
+  if (value === null || value === undefined) return '';
+  const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }

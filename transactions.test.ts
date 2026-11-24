@@ -89,7 +89,7 @@ test('CSV honors requested field order, including related names', async () => {
   const response = await fetch(`${baseURL}/transactions?format=csv&fields=amount,account.name,date`);
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type')!, /^text\/csv/);
-  assert.equal(await response.text(), 'amount,account.name,date\n1234,"Checking","2026-01-01"\n');
+  assert.equal(await response.text(), 'amount,account.name,date\n1234,Checking,2026-01-01\n');
 });
 
 test('explicit fields outside the default list are passed to Actual on both endpoints', async () => {
@@ -100,7 +100,7 @@ test('explicit fields outside the default list are passed to Actual on both endp
     assert.deepEqual(lastQuery!.serialize().selectExpressions, ['payee.favorite', 'raw_synced_data']);
     const csv = await fetch(`${baseURL}${path}?format=csv&fields=payee.favorite,raw_synced_data`);
     assert.equal(csv.status, 200);
-    assert.equal(await csv.text(), 'payee.favorite,raw_synced_data\ntrue,"{}"\n');
+    assert.equal(await csv.text(), 'payee.favorite,raw_synced_data\ntrue,{}\n');
   }
 });
 
@@ -122,6 +122,25 @@ test('invalid parameters return 400 before querying Actual on both endpoints', a
       assert.equal(lastQuery, undefined);
     }
   }
+});
+
+test('CSV quotes only cells that need it and leaves null and undefined empty', async () => {
+  rows = [{ note: 'say "hi"', payee: 'Shop, Inc.', memo: 'line\nbreak', crlf: 'a\r\nb', empty: null, missing: undefined, plain: 'x' }];
+  const response = await fetch(`${baseURL}/transactions?format=csv`);
+  assert.equal(await response.text(),
+    'note,payee,memo,crlf,empty,missing,plain\n"say ""hi""","Shop, Inc.","line\nbreak","a\r\nb",,,x\n');
+});
+
+test('CSV writes object values as escaped JSON', async () => {
+  rows = [{ id: 't', data: { a: 1, b: 'x' } }];
+  const response = await fetch(`${baseURL}/transactions?format=csv`);
+  assert.equal(await response.text(), 'id,data\nt,"{""a"":1,""b"":""x""}"\n');
+});
+
+test('CSV takes cells by column name when rows list keys in different orders', async () => {
+  rows = [{ date: '2026-01-01', amount: 1 }, { amount: 2, date: '2026-01-02' }];
+  const response = await fetch(`${baseURL}/transactions?format=csv`);
+  assert.equal(await response.text(), 'date,amount\n2026-01-01,1\n2026-01-02,2\n');
 });
 
 test('empty results work in JSON and CSV', async () => {
