@@ -20,17 +20,23 @@ function reply(formats: readonly Format[], load: (req: Request<Params>) => Promi
   };
 }
 
-export const router = express.Router()
-  .get('/accounts', reply(jsonOrCSV, actual.getAccounts))
-  .get('/accounts/:id', reply(jsonOrCSV, async req => {
-    const account = await actual.getAccount(req.params.id);
-    if (!account) throw new HttpError(404, 'Account not found');
-    return account;
-  }))
-  .get('/transactions', reply(jsonOrCSV, req => actual.getTransactions(parseTransactionOptions(req.query))))
-  .get('/accounts/:id/transactions', reply(jsonOrCSV, req =>
-    actual.getTransactions(parseTransactionOptions(req.query), req.params.id)))
-  .get('/budget/:month', reply(jsonOnly, req => actual.getBudgetMonth(req.params.month)));
+export const router = express.Router();
+
+router.get('/accounts', reply(jsonOrCSV, actual.getAccounts));
+
+router.get('/accounts/:id', reply(jsonOrCSV, async req => {
+  const account = await actual.getAccount(req.params.id);
+  if (!account) throw new HttpError(404, 'Account not found');
+  return account;
+}));
+
+router.get('/accounts/:id/transactions', reply(jsonOrCSV, req =>
+  actual.getTransactions(parseTransactionOptions(req.query), req.params.id)));
+
+router.get('/transactions', reply(jsonOrCSV, req =>
+  actual.getTransactions(parseTransactionOptions(req.query))));
+
+router.get('/budget/:month', reply(jsonOnly, req => actual.getBudgetMonth(req.params.month)));
 
 function toCSV(data: Data) {
   const rows = (Array.isArray(data) ? data : [data]) as Record<string, unknown>[];

@@ -6,5 +6,7 @@ import { router } from './routes.ts';
 export function createApp(authToken?: string) {
   const app = express();
   if (authToken) app.use(createAuth(authToken));
-  return app.use(router).use(errorHandler);
+  app.use(router);
+  app.use(errorHandler);
+  return app;
 }

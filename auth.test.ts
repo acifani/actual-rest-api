@@ -12,10 +12,10 @@ let server: Server;
 let baseURL: string;
 
 before(async () => {
-  const app = express()
-    .use(createAuth(token))
-    .get('/', (req, res) => { res.sendStatus(200); })
-    .use(errorHandler);
+  const app = express();
+  app.use(createAuth(token));
+  app.get('/', (req, res) => { res.sendStatus(200); });
+  app.use(errorHandler);
   server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   baseURL = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
