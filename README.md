@@ -50,15 +50,21 @@ docker run -d \
 
 ## Authentication
 
-If `AUTH_TOKEN` is set, all requests must include the token as a query parameter:
+If `AUTH_TOKEN` is set, all requests must include the token, either as a Bearer header or as a query parameter:
 
 ```
+Authorization: Bearer your-secret-token
 GET /accounts?token=your-secret-token
 ```
 
+When both are sent, the header is used. A missing or wrong token gets `401`.
+If `AUTH_TOKEN` is not set, the API is open and the server logs a warning at startup.
+
 ## API Endpoints
 
-All endpoints return JSON by default. Add `?format=csv` to get CSV output instead.
+All endpoints return JSON by default. Add `?format=csv` to get CSV output instead, except on
+`/budget/:month`, which returns JSON only. An unsupported `format` gets `400`, and an unknown
+account gets `404`.
 
 | Endpoint                         | Description                                |
 | -------------------------------- | ------------------------------------------ |

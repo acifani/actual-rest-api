@@ -1,46 +1,39 @@
-import express from 'express';
+import { once } from 'node:events';
 import * as actual from './actual.ts';
-import { authMiddleware } from './auth.ts';
-import { router } from './routes.ts';
+import { createApp } from './app.ts';
+import { loadConfig, type Config } from './config.ts';
 
-const app = express();
+export async function start(config: Config) {
+  await actual.init(config.actual);
+  const server = createApp(config.authToken).listen(config.port);
+  await once(server, 'listening');
+  console.log(`Listening on port ${config.port}`);
 
-app.use(authMiddleware);
-app.use('/', router);
+  let inFlightSync: Promise<void> | undefined;
+  const syncTimer = setInterval(() => {
+    inFlightSync ??= actual.sync()
+      .catch(error => console.error('Actual sync failed:', error))
+      .finally(() => { inFlightSync = undefined; });
+  }, config.syncIntervalMs);
 
-const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
-  console.error(err);
-  res.sendStatus(500);
-};
-app.use(errorHandler);
+  let stopping: Promise<void> | undefined;
+  const shutdown = () => stopping ??= (async () => {
+    console.log('Shutting down');
+    clearInterval(syncTimer);
+    server.close();
+    await once(server, 'close');
+    await inFlightSync;
+    await actual.shutdown();
+    console.log('Shut down');
+  })();
 
-// Server start
-const port = process.env.PORT || 3000;
+  return { server, shutdown };
+}
 
-console.log('Initializing Actual DB...');
-await actual.init();
-console.log('Actual DB initialized');
-
-const server = app.listen(port, () => {
-  console.log(`Listening on port ${port}...`);
-});
-
-// Refresh Actual data at a given frequence
-const intervalID = setInterval(() => {
-  actual.init().then(() => console.log('Actual DB refreshed'));
-}, (Number(process.env.ACTUAL_REFRESH_INTERVAL_SECONDS) || 60) * 1000);
-
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
-
-// Graceful shutdown
-async function shutdown() {
-  clearInterval(intervalID);
-
-  console.log('Shutting down Actual DB...');
-  await actual.shutdown();
-  console.log('Actual DB shut down');
-
-  console.log('Closing HTTP server...');
-  server.close(() => console.log('HTTP server closed'));
+if (import.meta.main) {
+  const config = loadConfig();
+  if (!config.authToken) console.warn('AUTH_TOKEN is not set, so the API is open to anyone who can reach it');
+  const { shutdown } = await start(config);
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }

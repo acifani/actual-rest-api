@@ -1,100 +1,54 @@
+import express, { type Request, type RequestHandler } from 'express';
 import * as actual from './actual.ts';
-import express from 'express';
+import { HttpError } from './errors.ts';
 import { parseTransactionOptions } from './transaction-query.ts';
-const router = express.Router();
 
-const transactionOptionsHandler: express.RequestHandler = (req, res, next) => {
-  try {
-    res.locals.transactionOptions = parseTransactionOptions(req.query);
-    next();
-  } catch (error) {
-    res.status(400).json({ error: (error as Error).message });
-  }
-};
+type Format = 'json' | 'csv';
+type Data = object | object[];
+type Params = Record<string, string>;
 
-const formatHandler: express.RequestHandler = (req, res) => {
-  const format = req.query['format'] === 'csv' ? 'csv' : 'json';
-  if (format === 'csv') {
-    const data = jsonToCSV(res.locals.data, res.locals.transactionOptions?.fields);
-    res.status(200).header('Content-Type', 'text/csv').send(data);
-  } else if (format === 'json') {
-    res.status(200).json(res.locals.data);
-  }
-};
+const jsonOrCSV: readonly Format[] = ['json', 'csv'];
+const jsonOnly: readonly Format[] = ['json'];
 
-router.get('/budget/:month', async (req, res) => {
-  const budget = await actual.getBudgetAtMonth(req.params.month);
-  res.status(200).json(budget);
-});
+function reply(formats: readonly Format[], load: (req: Request<Params>) => Promise<Data>): RequestHandler<Params> {
+  return async (req, res) => {
+    const format = formats.find(format => format === (req.query.format ?? 'json'));
+    if (!format) throw new HttpError(400, `format must be one of: ${formats.join(', ')}`);
+    const data = await load(req);
+    if (format === 'csv') res.type('csv').send(toCSV(data));
+    else res.json(data);
+  };
+}
 
-router.get(
-  '/accounts',
-  async (_, res, next) => {
-    const accounts = await actual.getAccounts();
-    res.locals.data = accounts;
-    next();
-  },
-  formatHandler,
-);
+export const router = express.Router();
 
-router.get(
-  '/accounts/:accountid',
-  async (req, res, next) => {
-    const account = await actual.getAccount(req.params.accountid as string);
-    res.locals.data = account;
-    next();
-  },
-  formatHandler,
-);
+router.get('/accounts', reply(jsonOrCSV, actual.getAccounts));
 
-router.get(
-  '/accounts/:accountid/transactions',
-  transactionOptionsHandler,
-  async (req, res, next) => {
-    const transactions = await actual.getTransactions(req.params.accountid as string, res.locals.transactionOptions);
-    res.locals.data = transactions;
-    next();
-  },
-  formatHandler,
-);
+router.get('/accounts/:id', reply(jsonOrCSV, async req => {
+  const account = await actual.getAccount(req.params.id);
+  if (!account) throw new HttpError(404, 'Account not found');
+  return account;
+}));
 
-router.get(
-  '/transactions',
-  transactionOptionsHandler,
-  async (_, res, next) => {
-    const transactions = await actual.getAllTransactions(res.locals.transactionOptions);
-    res.locals.data = transactions;
-    next();
-  },
-  formatHandler,
-);
+router.get('/accounts/:id/transactions', reply(jsonOrCSV, req =>
+  actual.getTransactions(parseTransactionOptions(req.query), req.params.id)));
 
-export { router };
+router.get('/transactions', reply(jsonOrCSV, req =>
+  actual.getTransactions(parseTransactionOptions(req.query))));
 
-function jsonToCSV(data: any, fields?: string[]) {
-  let csv = '';
+router.get('/budget/:month', reply(jsonOnly, req => actual.getBudgetMonth(req.params.month)));
 
-  const unpackHeaders = (x: object) => (fields ?? Object.keys(x)).join(',') + '\n';
-  const unpackValues = (x: object) =>
-    (fields ? fields.map(field => (x as Record<string, unknown>)[field]) : Object.values(x))
-      .map((v) => JSON.stringify(v))
-      .join(',') + '\n';
+function toCSV(data: Data) {
+  const rows = (Array.isArray(data) ? data : [data]) as Record<string, unknown>[];
+  if (rows.length === 0) return '';
+  const columns = Object.keys(rows[0]);
+  return [columns, ...rows.map(row => columns.map(column => row[column]))]
+    .map(cells => cells.map(csvCell).join(','))
+    .join('\n') + '\n';
+}
 
-  // object
-  if (!Array.isArray(data)) {
-    csv += unpackHeaders(data);
-    csv += unpackValues(data);
-    return csv;
-  }
-
-  // array
-  if (data.length === 0) {
-    return csv;
-  }
-  csv += unpackHeaders(data[0]);
-  for (const row of data) {
-    csv += unpackValues(row);
-  }
-
-  return csv;
+function csvCell(value: unknown) {
+  if (value === null || value === undefined) return '';
+  const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { after, before, mock, test } from 'node:test';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
-import express from 'express';
 import { q } from '@actual-app/api';
 import { buildTransactionsQuery, parseTransactionOptions } from './transaction-query.ts';
 
@@ -12,23 +11,26 @@ let rows: Record<string, unknown>[] = [{
   'account.name': 'Checking', 'payee.name': 'Shop',
   raw_synced_data: '{}', 'payee.favorite': true,
 }];
+const accounts = [{ id: 'account-1', name: 'Checking' }];
+const actualCalls: string[] = [];
 mock.module('@actual-app/api', {
-  namedExports: {
+  exports: {
     q,
+    getAccounts: async () => (actualCalls.push('getAccounts'), accounts),
+    getAccountBalance: async () => (actualCalls.push('getAccountBalance'), 1000),
+    getBudgetMonth: async (month: string) => (actualCalls.push('getBudgetMonth'), { month }),
     aqlQuery: async (query: ReturnType<typeof q>) => {
       lastQuery = query;
       return { data: rows };
     },
   },
 });
-const { router } = await import('./routes.ts');
+const { createApp } = await import('./app.ts');
 let server: Server;
 let baseURL: string;
 
 before(async () => {
-  const app = express();
-  app.use(router);
-  server = app.listen(0, '127.0.0.1');
+  server = createApp().listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   baseURL = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
@@ -89,7 +91,7 @@ test('CSV honors requested field order, including related names', async () => {
   const response = await fetch(`${baseURL}/transactions?format=csv&fields=amount,account.name,date`);
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type')!, /^text\/csv/);
-  assert.equal(await response.text(), 'amount,account.name,date\n1234,"Checking","2026-01-01"\n');
+  assert.equal(await response.text(), 'amount,account.name,date\n1234,Checking,2026-01-01\n');
 });
 
 test('explicit fields outside the default list are passed to Actual on both endpoints', async () => {
@@ -100,7 +102,7 @@ test('explicit fields outside the default list are passed to Actual on both endp
     assert.deepEqual(lastQuery!.serialize().selectExpressions, ['payee.favorite', 'raw_synced_data']);
     const csv = await fetch(`${baseURL}${path}?format=csv&fields=payee.favorite,raw_synced_data`);
     assert.equal(csv.status, 200);
-    assert.equal(await csv.text(), 'payee.favorite,raw_synced_data\ntrue,"{}"\n');
+    assert.equal(await csv.text(), 'payee.favorite,raw_synced_data\ntrue,{}\n');
   }
 });
 
@@ -122,6 +124,69 @@ test('invalid parameters return 400 before querying Actual on both endpoints', a
       assert.equal(lastQuery, undefined);
     }
   }
+});
+
+test('CSV quotes only cells that need it and leaves null and undefined empty', async () => {
+  rows = [{ note: 'say "hi"', payee: 'Shop, Inc.', memo: 'line\nbreak', crlf: 'a\r\nb', empty: null, missing: undefined, plain: 'x' }];
+  const response = await fetch(`${baseURL}/transactions?format=csv`);
+  assert.equal(await response.text(),
+    'note,payee,memo,crlf,empty,missing,plain\n"say ""hi""","Shop, Inc.","line\nbreak","a\r\nb",,,x\n');
+});
+
+test('CSV writes object values as escaped JSON', async () => {
+  rows = [{ id: 't', data: { a: 1, b: 'x' } }];
+  const response = await fetch(`${baseURL}/transactions?format=csv`);
+  assert.equal(await response.text(), 'id,data\nt,"{""a"":1,""b"":""x""}"\n');
+});
+
+test('CSV takes cells by column name when rows list keys in different orders', async () => {
+  rows = [{ date: '2026-01-01', amount: 1 }, { amount: 2, date: '2026-01-02' }];
+  const response = await fetch(`${baseURL}/transactions?format=csv`);
+  assert.equal(await response.text(), 'date,amount\n2026-01-01,1\n2026-01-02,2\n');
+});
+
+test('unknown formats return 400 before querying Actual', async () => {
+  const paths = ['/accounts', '/accounts/account-1', '/accounts/account-1/transactions', '/transactions', '/budget/2026-01'];
+  for (const path of paths) {
+    for (const format of ['xml', 'CSV', '', 'csv&format=json']) {
+      actualCalls.length = 0;
+      lastQuery = undefined;
+      const response = await fetch(`${baseURL}${path}?format=${format}`);
+      assert.equal(response.status, 400, `${path}?format=${format}`);
+      assert.equal(typeof (await response.json() as { error: string }).error, 'string');
+      assert.deepEqual(actualCalls, []);
+      assert.equal(lastQuery, undefined);
+    }
+    const response = await fetch(`${baseURL}${path}?format=json`);
+    assert.equal(response.status, 200, `${path}?format=json`);
+  }
+});
+
+test('CSV on /budget/:month returns 400 before querying Actual', async () => {
+  actualCalls.length = 0;
+  const response = await fetch(`${baseURL}/budget/2026-01?format=csv`);
+  assert.equal(response.status, 400);
+  assert.equal(typeof (await response.json() as { error: string }).error, 'string');
+  assert.deepEqual(actualCalls, []);
+  assert.deepEqual(await (await fetch(`${baseURL}/budget/2026-01`)).json(), { month: '2026-01' });
+});
+
+test('an unknown account returns 404 in JSON and CSV', async () => {
+  for (const query of ['', '?format=json', '?format=csv']) {
+    const response = await fetch(`${baseURL}/accounts/unknown${query}`);
+    assert.equal(response.status, 404, query);
+    assert.equal(typeof (await response.json() as { error: string }).error, 'string');
+  }
+  const known = await fetch(`${baseURL}/accounts/account-1?format=csv`);
+  assert.equal(known.status, 200);
+  assert.equal(await known.text(), 'id,name,balance\naccount-1,Checking,1000\n');
+});
+
+test('transactions of an unknown account are an empty list, not 404', async () => {
+  rows = [];
+  const response = await fetch(`${baseURL}/accounts/unknown/transactions`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), []);
 });
 
 test('empty results work in JSON and CSV', async () => {

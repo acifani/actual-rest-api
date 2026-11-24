@@ -4,6 +4,6 @@ RUN pnpm runtime set node 26 -g
 
 WORKDIR /app
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --prod --frozen-lockfile
 
-CMD [ "pnpm", "start:docker" ]
+CMD ["node", "index.ts"]
