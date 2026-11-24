@@ -21,6 +21,10 @@ export async function init() {
   await api.downloadBudget(process.env.ACTUAL_BUDGET_SYNC_ID);
 }
 
+export async function sync() {
+  return api.sync();
+}
+
 export async function shutdown() {
   return api.shutdown();
 }

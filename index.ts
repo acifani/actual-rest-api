@@ -1,3 +1,4 @@
+import { once } from 'node:events';
 import express from 'express';
 import * as actual from './actual.ts';
 import { authMiddleware } from './auth.ts';
@@ -14,33 +15,54 @@ const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
 };
 app.use(errorHandler);
 
-// Server start
-const port = process.env.PORT || 3000;
+export async function start({ port, syncIntervalMs }: { port: number | string; syncIntervalMs: number }) {
+  console.log('Initializing Actual DB...');
+  await actual.init();
+  console.log('Actual DB initialized');
 
-console.log('Initializing Actual DB...');
-await actual.init();
-console.log('Actual DB initialized');
+  const server = app.listen(port);
+  await once(server, 'listening');
 
-const server = app.listen(port, () => {
+  let inFlightSync: Promise<void> | undefined;
+  const syncInterval = setInterval(() => {
+    if (inFlightSync) return;
+    inFlightSync = actual
+      .sync()
+      .then(() => console.log('Actual DB synced'), error => console.error('Actual DB sync failed:', error))
+      .finally(() => {
+        inFlightSync = undefined;
+      });
+  }, syncIntervalMs);
+
+  let stopped: Promise<void> | undefined;
+  function shutdown() {
+    stopped ??= (async () => {
+      clearInterval(syncInterval);
+
+      console.log('Closing HTTP server...');
+      await new Promise<void>((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
+      console.log('HTTP server closed');
+
+      await inFlightSync;
+
+      console.log('Shutting down Actual DB...');
+      await actual.shutdown();
+      console.log('Actual DB shut down');
+    })();
+    return stopped;
+  }
+
+  return { server, shutdown };
+}
+
+if (import.meta.main) {
+  const port = process.env.PORT || 3000;
+  const service = await start({
+    port,
+    syncIntervalMs: (Number(process.env.ACTUAL_REFRESH_INTERVAL_SECONDS) || 60) * 1000,
+  });
   console.log(`Listening on port ${port}...`);
-});
 
-// Refresh Actual data at a given frequence
-const intervalID = setInterval(() => {
-  actual.init().then(() => console.log('Actual DB refreshed'));
-}, (Number(process.env.ACTUAL_REFRESH_INTERVAL_SECONDS) || 60) * 1000);
-
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
-
-// Graceful shutdown
-async function shutdown() {
-  clearInterval(intervalID);
-
-  console.log('Shutting down Actual DB...');
-  await actual.shutdown();
-  console.log('Actual DB shut down');
-
-  console.log('Closing HTTP server...');
-  server.close(() => console.log('HTTP server closed'));
+  process.on('SIGTERM', service.shutdown);
+  process.on('SIGINT', service.shutdown);
 }
