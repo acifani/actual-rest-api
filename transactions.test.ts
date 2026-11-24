@@ -12,9 +12,14 @@ let rows: Record<string, unknown>[] = [{
   'account.name': 'Checking', 'payee.name': 'Shop',
   raw_synced_data: '{}', 'payee.favorite': true,
 }];
+const accounts = [{ id: 'account-1', name: 'Checking' }];
+const actualCalls: string[] = [];
 mock.module('@actual-app/api', {
   exports: {
     q,
+    getAccounts: async () => (actualCalls.push('getAccounts'), accounts),
+    getAccountBalance: async () => (actualCalls.push('getAccountBalance'), 1000),
+    getBudgetMonth: async (month: string) => (actualCalls.push('getBudgetMonth'), { month }),
     aqlQuery: async (query: ReturnType<typeof q>) => {
       lastQuery = query;
       return { data: rows };
@@ -141,6 +146,32 @@ test('CSV takes cells by column name when rows list keys in different orders', a
   rows = [{ date: '2026-01-01', amount: 1 }, { amount: 2, date: '2026-01-02' }];
   const response = await fetch(`${baseURL}/transactions?format=csv`);
   assert.equal(await response.text(), 'date,amount\n2026-01-01,1\n2026-01-02,2\n');
+});
+
+test('unknown formats return 400 before querying Actual', async () => {
+  const paths = ['/accounts', '/accounts/account-1', '/accounts/account-1/transactions', '/transactions', '/budget/2026-01'];
+  for (const path of paths) {
+    for (const format of ['xml', 'CSV', '', 'csv&format=json']) {
+      actualCalls.length = 0;
+      lastQuery = undefined;
+      const response = await fetch(`${baseURL}${path}?format=${format}`);
+      assert.equal(response.status, 400, `${path}?format=${format}`);
+      assert.equal(typeof (await response.json() as { error: string }).error, 'string');
+      assert.deepEqual(actualCalls, []);
+      assert.equal(lastQuery, undefined);
+    }
+    const response = await fetch(`${baseURL}${path}?format=json`);
+    assert.equal(response.status, 200, `${path}?format=json`);
+  }
+});
+
+test('CSV on /budget/:month returns 400 before querying Actual', async () => {
+  actualCalls.length = 0;
+  const response = await fetch(`${baseURL}/budget/2026-01?format=csv`);
+  assert.equal(response.status, 400);
+  assert.equal(typeof (await response.json() as { error: string }).error, 'string');
+  assert.deepEqual(actualCalls, []);
+  assert.deepEqual(await (await fetch(`${baseURL}/budget/2026-01`)).json(), { month: '2026-01' });
 });
 
 test('empty results work in JSON and CSV', async () => {

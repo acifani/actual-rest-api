@@ -3,6 +3,15 @@ import express from 'express';
 import { parseTransactionOptions, type TransactionOptions } from './transaction-query.ts';
 const router = express.Router();
 
+function formats(...allowed: string[]): express.RequestHandler {
+  return (req, res, next) => {
+    const format = req.query['format'] ?? 'json';
+    if (typeof format === 'string' && allowed.includes(format)) return next();
+    res.status(400).json({ error: `format must be one of: ${allowed.join(', ')}` });
+  };
+}
+const jsonOrCSV = formats('json', 'csv');
+
 function send(req: express.Request, res: express.Response, data: any, fields?: string[]) {
   if (req.query['format'] === 'csv') {
     res.status(200).header('Content-Type', 'text/csv').send(toCSV(data, fields));
@@ -11,20 +20,20 @@ function send(req: express.Request, res: express.Response, data: any, fields?: s
   }
 }
 
-router.get('/budget/:month', async (req, res) => {
-  const budget = await actual.getBudgetAtMonth(req.params.month);
+router.get('/budget/:month', formats('json'), async (req, res) => {
+  const budget = await actual.getBudgetAtMonth(req.params.month as string);
   res.status(200).json(budget);
 });
 
-router.get('/accounts', async (req, res) => {
+router.get('/accounts', jsonOrCSV, async (req, res) => {
   send(req, res, await actual.getAccounts());
 });
 
-router.get('/accounts/:accountid', async (req, res) => {
-  send(req, res, await actual.getAccount(req.params.accountid));
+router.get('/accounts/:accountid', jsonOrCSV, async (req, res) => {
+  send(req, res, await actual.getAccount(req.params.accountid as string));
 });
 
-router.get('/accounts/:accountid/transactions', async (req, res) => {
+router.get('/accounts/:accountid/transactions', jsonOrCSV, async (req, res) => {
   let options: TransactionOptions;
   try {
     options = parseTransactionOptions(req.query);
@@ -32,10 +41,10 @@ router.get('/accounts/:accountid/transactions', async (req, res) => {
     res.status(400).json({ error: (error as Error).message });
     return;
   }
-  send(req, res, await actual.getTransactions(req.params.accountid, options), options.fields);
+  send(req, res, await actual.getTransactions(req.params.accountid as string, options), options.fields);
 });
 
-router.get('/transactions', async (req, res) => {
+router.get('/transactions', jsonOrCSV, async (req, res) => {
   let options: TransactionOptions;
   try {
     options = parseTransactionOptions(req.query);
