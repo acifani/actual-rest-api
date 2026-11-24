@@ -1,12 +1,19 @@
-import { timingSafeEqual } from 'crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 
-const authToken = process.env.AUTH_TOKEN;
-const authEnabled = !!authToken && authToken.length > 0;
+function sha256(value: string): Buffer {
+  return createHash('sha256').update(value).digest();
+}
 
-function safeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+const authToken = process.env.AUTH_TOKEN;
+const expectedDigest = authToken ? sha256(authToken) : undefined;
+export const authEnabled = expectedDigest !== undefined;
+
+function incomingToken(req: Request): string | undefined {
+  const header = req.headers.authorization;
+  if (header !== undefined) return /^Bearer +(.+)$/i.exec(header)?.[1];
+  const token = req.query.token;
+  return typeof token === 'string' ? token : undefined;
 }
 
 export function authMiddleware(
@@ -14,13 +21,10 @@ export function authMiddleware(
   res: Response,
   next: NextFunction,
 ) {
-  if (authEnabled) {
-    const incomingToken = req.headers['authorization'] || req.query['token'];
-    if (
-      typeof incomingToken !== 'string' ||
-      !safeCompare(incomingToken, authToken!)
-    ) {
-      res.sendStatus(403);
+  if (expectedDigest) {
+    const token = incomingToken(req);
+    if (token === undefined || !timingSafeEqual(sha256(token), expectedDigest)) {
+      res.set('WWW-Authenticate', 'Bearer').sendStatus(401);
       return;
     }
   }
