@@ -4,16 +4,18 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import express from 'express';
 
+import { createAuth } from './auth.ts';
+import { errorHandler } from './errors.ts';
+
 const token = 'correct-token';
-process.env.AUTH_TOKEN = token;
-const { authMiddleware } = await import('./auth.ts');
 let server: Server;
 let baseURL: string;
 
 before(async () => {
-  const app = express();
-  app.use(authMiddleware);
-  app.get('/', (req, res) => { res.sendStatus(200); });
+  const app = express()
+    .use(createAuth(token))
+    .get('/', (req, res) => { res.sendStatus(200); })
+    .use(errorHandler);
   server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   baseURL = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

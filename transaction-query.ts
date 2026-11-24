@@ -1,4 +1,5 @@
 import * as api from '@actual-app/api';
+import { HttpError } from './errors.ts';
 
 // Public default columns: keep this explicit and stable as Actual's schema grows.
 export const defaultTransactionFields = [
@@ -27,24 +28,24 @@ export function parseTransactionOptions(query: Record<string, unknown>): Transac
       !Number.isFinite(Date.parse(value)) ||
       new Date(value).toISOString().slice(0, 10) !== value
     ) {
-      throw new Error(`${key} must be a valid date in YYYY-MM-DD format`);
+      throw new HttpError(400, `${key} must be a valid date in YYYY-MM-DD format`);
     }
     options[key] = value;
   }
   if (options.startDate && options.endDate && options.startDate >= options.endDate) {
-    throw new Error('startDate must be earlier than endDate (which is exclusive)');
+    throw new HttpError(400, 'startDate must be earlier than endDate (which is exclusive)');
   }
 
   if (query.fields !== undefined) {
     if (typeof query.fields !== 'string') {
-      throw new Error('fields must be a comma-separated list of transaction fields');
+      throw new HttpError(400, 'fields must be a comma-separated list of transaction fields');
     }
     const fields = query.fields.split(',').map(field => field.trim());
     if (fields.some(field => !/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(field))) {
-      throw new Error('fields must contain non-empty field names or dot-separated field paths');
+      throw new HttpError(400, 'fields must contain non-empty field names or dot-separated field paths');
     }
     if (new Set(fields).size !== fields.length) {
-      throw new Error('fields must not contain duplicates');
+      throw new HttpError(400, 'fields must not contain duplicates');
     }
     options.fields = fields;
   }

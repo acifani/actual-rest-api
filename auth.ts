@@ -1,33 +1,23 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import type { NextFunction, Request, Response } from 'express';
+import type { Request, RequestHandler } from 'express';
+import { HttpError } from './errors.ts';
 
-function sha256(value: string): Buffer {
-  return createHash('sha256').update(value).digest();
-}
+const sha256 = (value: string) => createHash('sha256').update(value).digest();
 
-const authToken = process.env.AUTH_TOKEN;
-const expectedDigest = authToken ? sha256(authToken) : undefined;
-export const authEnabled = expectedDigest !== undefined;
-
-function incomingToken(req: Request): string | undefined {
+function incomingToken(req: Request) {
   const header = req.headers.authorization;
   if (header !== undefined) return /^Bearer +(.+)$/i.exec(header)?.[1];
-  const token = req.query.token;
-  return typeof token === 'string' ? token : undefined;
+  return typeof req.query.token === 'string' ? req.query.token : undefined;
 }
 
-export function authMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  if (expectedDigest) {
-    const token = incomingToken(req);
-    if (token === undefined || !timingSafeEqual(sha256(token), expectedDigest)) {
-      res.set('WWW-Authenticate', 'Bearer').sendStatus(401);
-      return;
+export function createAuth(token: string): RequestHandler {
+  const expected = sha256(token);
+  return (req, res, next) => {
+    const incoming = incomingToken(req);
+    if (incoming === undefined || !timingSafeEqual(sha256(incoming), expected)) {
+      res.set('WWW-Authenticate', 'Bearer');
+      throw new HttpError(401, 'Missing or invalid token');
     }
-  }
-
-  next();
+    next();
+  };
 }

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { after, before, mock, test } from 'node:test';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
-import express from 'express';
 import { q } from '@actual-app/api';
 import { buildTransactionsQuery, parseTransactionOptions } from './transaction-query.ts';
 
@@ -26,14 +25,12 @@ mock.module('@actual-app/api', {
     },
   },
 });
-const { router } = await import('./routes.ts');
+const { createApp } = await import('./app.ts');
 let server: Server;
 let baseURL: string;
 
 before(async () => {
-  const app = express();
-  app.use(router);
-  server = app.listen(0, '127.0.0.1');
+  server = createApp().listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   baseURL = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });

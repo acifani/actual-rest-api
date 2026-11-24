@@ -1,73 +1,44 @@
+import express, { type Request, type RequestHandler } from 'express';
 import * as actual from './actual.ts';
-import express from 'express';
-import { parseTransactionOptions, type TransactionOptions } from './transaction-query.ts';
-const router = express.Router();
+import { HttpError } from './errors.ts';
+import { parseTransactionOptions } from './transaction-query.ts';
 
-function formats(...allowed: string[]): express.RequestHandler {
-  return (req, res, next) => {
-    const format = req.query['format'] ?? 'json';
-    if (typeof format === 'string' && allowed.includes(format)) return next();
-    res.status(400).json({ error: `format must be one of: ${allowed.join(', ')}` });
+type Format = 'json' | 'csv';
+type Data = object | object[];
+type Params = Record<string, string>;
+
+const jsonOrCSV: readonly Format[] = ['json', 'csv'];
+const jsonOnly: readonly Format[] = ['json'];
+
+function reply(formats: readonly Format[], load: (req: Request<Params>) => Promise<Data>): RequestHandler<Params> {
+  return async (req, res) => {
+    const format = formats.find(format => format === (req.query.format ?? 'json'));
+    if (!format) throw new HttpError(400, `format must be one of: ${formats.join(', ')}`);
+    const data = await load(req);
+    if (format === 'csv') res.type('csv').send(toCSV(data));
+    else res.json(data);
   };
 }
-const jsonOrCSV = formats('json', 'csv');
 
-function send(req: express.Request, res: express.Response, data: object | object[], fields?: string[]) {
-  if (req.query['format'] === 'csv') {
-    res.status(200).header('Content-Type', 'text/csv').send(toCSV(data, fields));
-  } else {
-    res.status(200).json(data);
-  }
-}
+export const router = express.Router()
+  .get('/accounts', reply(jsonOrCSV, actual.getAccounts))
+  .get('/accounts/:id', reply(jsonOrCSV, async req => {
+    const account = await actual.getAccount(req.params.id);
+    if (!account) throw new HttpError(404, 'Account not found');
+    return account;
+  }))
+  .get('/transactions', reply(jsonOrCSV, req => actual.getTransactions(parseTransactionOptions(req.query))))
+  .get('/accounts/:id/transactions', reply(jsonOrCSV, req =>
+    actual.getTransactions(parseTransactionOptions(req.query), req.params.id)))
+  .get('/budget/:month', reply(jsonOnly, req => actual.getBudgetMonth(req.params.month)));
 
-router.get('/budget/:month', formats('json'), async (req, res) => {
-  const budget = await actual.getBudgetAtMonth(req.params.month as string);
-  res.status(200).json(budget);
-});
-
-router.get('/accounts', jsonOrCSV, async (req, res) => {
-  send(req, res, await actual.getAccounts());
-});
-
-router.get('/accounts/:accountid', jsonOrCSV, async (req, res) => {
-  const account = await actual.getAccount(req.params.accountid as string);
-  if (!account) {
-    res.status(404).json({ error: 'Account not found' });
-    return;
-  }
-  send(req, res, account);
-});
-
-router.get('/accounts/:accountid/transactions', jsonOrCSV, async (req, res) => {
-  let options: TransactionOptions;
-  try {
-    options = parseTransactionOptions(req.query);
-  } catch (error) {
-    res.status(400).json({ error: (error as Error).message });
-    return;
-  }
-  send(req, res, await actual.getTransactions(req.params.accountid as string, options), options.fields);
-});
-
-router.get('/transactions', jsonOrCSV, async (req, res) => {
-  let options: TransactionOptions;
-  try {
-    options = parseTransactionOptions(req.query);
-  } catch (error) {
-    res.status(400).json({ error: (error as Error).message });
-    return;
-  }
-  send(req, res, await actual.getAllTransactions(options), options.fields);
-});
-
-export { router };
-
-function toCSV(data: object | object[], fields?: string[]) {
+function toCSV(data: Data) {
   const rows = (Array.isArray(data) ? data : [data]) as Record<string, unknown>[];
   if (rows.length === 0) return '';
-  const columns = fields ?? Object.keys(rows[0]);
+  const columns = Object.keys(rows[0]);
   return [columns, ...rows.map(row => columns.map(column => row[column]))]
-    .map(cells => cells.map(csvCell).join(',')).join('\n') + '\n';
+    .map(cells => cells.map(csvCell).join(','))
+    .join('\n') + '\n';
 }
 
 function csvCell(value: unknown) {

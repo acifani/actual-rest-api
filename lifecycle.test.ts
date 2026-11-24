@@ -14,10 +14,6 @@ const api = {
 mock.module('@actual-app/api', { exports: { q, ...api } });
 const { start } = await import('./index.ts');
 
-process.env.ACTUAL_SERVER_URL = 'http://actual.invalid';
-process.env.ACTUAL_PASSWORD = 'password';
-process.env.ACTUAL_BUDGET_SYNC_ID = 'budget';
-
 const syncIntervalMs = 1000;
 
 function deferred() {
@@ -33,7 +29,11 @@ function deferred() {
 const servers: Server[] = [];
 
 async function startService() {
-  const service = await start({ port: 0, syncIntervalMs });
+  const service = await start({
+    port: 0,
+    syncIntervalMs,
+    actual: { serverURL: 'http://actual.invalid', password: 'password', syncID: 'budget' },
+  });
   servers.push(service.server);
   return service;
 }
