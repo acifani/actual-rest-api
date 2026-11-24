@@ -1,7 +1,7 @@
 import { once } from 'node:events';
 import express from 'express';
 import * as actual from './actual.ts';
-import { authMiddleware } from './auth.ts';
+import { authEnabled, authMiddleware } from './auth.ts';
 import { router } from './routes.ts';
 
 const app = express();
@@ -56,6 +56,8 @@ export async function start({ port, syncIntervalMs }: { port: number | string; s
 }
 
 if (import.meta.main) {
+  if (!authEnabled) console.warn('AUTH_TOKEN is not set, so the API is open to anyone who can reach it');
+
   const port = process.env.PORT || 3000;
   const service = await start({
     port,
