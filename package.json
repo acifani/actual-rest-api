@@ -6,9 +6,7 @@
   "main": "index.ts",
   "scripts": {
     "test": "node --experimental-test-module-mocks --test",
-    "start": "node --env-file=.env index.ts",
-    "start:docker": "node index.ts"
-  },
+    "start": "node --env-file=.env index.ts"  },
   "keywords": [],
   "author": "Alessandro Cifani <alessandro.cifani@gmail.com>",
   "license": "MIT",
